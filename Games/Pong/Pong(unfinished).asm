@@ -24,24 +24,19 @@ game
   gameLoop
     JSR setupCall
     JSR drawMap
-    LD R1, quartSec
+    LD R3, quartSec
     JSR setupCall
     JSR Sleep
 	
-	JSR setupCall
-	JSR movePlayer
-	; BR exit
+    JSR setupCall
+    JSR movePlayer
+    ; BR exit
   BR gameLoop
 
   exit
 
   JSR return
 ; return
-
-return
-  LDR R7, R5, #1 
-  LDR R5, R5, #0
-  RET
 
 ; void drawMap()
 drawMap
@@ -95,7 +90,7 @@ drawMap
 movePlayer
   STR R7, R5, #1
 
-; Reset Player In Map
+	; Reset Player In Map
 	LEA R0, map
 	LD R1, playerPos
   	ADD R0, R0, R1
@@ -128,14 +123,14 @@ movePlayer
 
 
 	negDir
-	LD R3, playerDirNeg
+	AND R3, R3, #0
 	ST R3, playerDir
 	LD R3, maxPlayerPos
 	ST R3, playerPos
 	BR endFlip
 	
 	posDir
-	LD R3, playerDirPos
+	AND R3, R3, #0
 	ST R3, playerDir
 	AND R3, R3, #0
 	ST R3, playerPos
@@ -151,16 +146,25 @@ movePlayer
 
   JSR return
 
-; funct Sleep(60ms * R1)
+; funct Sleep(12ms * R3)
 Sleep 
   STR R7, R5, #1
 
+	AND R2, R2, #0
+	ADD R2, R2, #5
 	goback
-	LD R2, maxInt
+	LD R4, maxInt
 	loop: 
-		ADD R2, R2, #-1
+		ADD R4, R4, #-1
 		BRP loop
-	ADD R1, R1, #-1
+	ADD R2, R2, #-1
+	BRP skipInput
+	JSR GET_KEY
+	ST R0, playerDir
+	AND R2, R2, #0
+	ADD R2, R2, #5
+	skipInput
+	ADD R3, R3, #-1
 	BRP goback
 
   JSR return
@@ -181,23 +185,66 @@ setupCall
   STR R5, R6, #1
   ADD R5, R6, #1
   RET
+  
+return
+  LDR R7, R5, #1 
+  LDR R5, R5, #0
+  RET
+
+GET_KEY
+	LDI R0, KBSR        ; Load the status of the keyboard
+	BRz NO_KEY_PRESSED  ; If no key is pressed, jump to NO_KEY_PRESSED
+
+	LDI R0, KBDR        ; Load the key code from the keyboard data register
+
+	; Check if the key is the up arrow (ASCII code xE048)
+	LD R1, W
+	NOT R1, R1
+	ADD R1, R1, #1
+	ADD R1, R0, R1
+	BRz SET_W
+
+	; Check if the key is the down arrow (ASCII code xE050)
+	LD R1, S
+	NOT R1, R1
+	ADD R1, R1, #1
+	ADD R1, R0, R1
+	BRz SET_S
+
+NO_KEY_PRESSED
+	AND R0, R0, #0    
+	RET                 ; Return from subroutine
+
+SET_W
+	LD R0, negPlayerDir
+	STI R1, KBSR
+	RET                 ; Return from subroutine
+
+SET_S
+		LD R0, posPlayerDir
+		STI R1, KBSR
+        RET                 ; Return from subroutine
 
 randomCount .FILL 0
 maxInt .FILL x7FFF
-oneSec .FILL 77
-quartSec .FILL 20
+oneSec .FILL 40 ;77 == one second
+quartSec .FILL 5 ; 20 == 0.25 s
 callStack .FILL x8000
 player .STRINGZ "|"
-space .STRINGZ "."
-ball .STRINGZ "•"
+space .STRINGZ " "
+ball .STRINGZ "o"
 newLine .STRINGZ "\n"
 curX .FILL #0
 mapSizeX .FILL -36
 mapSizeY .FILL -12
 playerPos .FILL 0
 playerDir .FILL 36
-playerDirPos .FILL 36
-playerDirNeg .FILL -36
+posPlayerDir .FILL 36
+negPlayerDir .FILL -36
 maxPlayerPos .FILL 396
+KBSR        .FILL xFE00         ; Keyboard status register address
+KBDR        .FILL xFE02         ; Keyboard data register address
+W    		.FILL 119         	; W keycode
+S  			.FILL 115         	; S keycode
 map .BLKW 400 0
 .END
