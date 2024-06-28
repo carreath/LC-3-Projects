@@ -2,19 +2,18 @@
 init
   LD R6, callStack
   ADD R5, R6, #-2
+
   LEA R0, map
   LD R2, playerPos
   ADD R0, R0, R2
   AND R1, R1, 0
-  ADD R1, R1, #5
+  ADD R1, R1, #1 ; Put player in map[0][0]
   STR R1, R0, #0
 
 main
   JSR setupCall
   AND R0, R0, #0
   ADD R0, R0, #1
-  JSR addParam
-  JSR addParam
   JSR game
   HALT
 
@@ -25,72 +24,31 @@ game
   gameLoop
     JSR setupCall
     JSR drawMap
-    LD R1, oneSec
+    LD R1, quartSec
     JSR setupCall
     JSR Sleep
-	; Reset Player In Map
-	LEA R0, map
-	LD R1, playerPos
-  	ADD R0, R0, R1
-	AND R1, R1, 0
-	STR R1, R0, #0
-
-	; Move Player
-	LD R1, playerPos
-	LD R3, playerDir
-	ADD R1, R1, R3 ; new pos
-	ST R1, playerPos
-
-	; Check Dir
-	LD R2, maxPlayerPos
-	NOT R2, R2
-	ADD R2, R2, #1 		; -maxPos
-	ADD R2, R2, R1 		; Pos - maxPos: [-144,0]
-	BRZP negDir 		; If pos >= 144 flip dir to -12
-	NOT R2, R2   		; else check if pos == 0
-	ADD R2, R2, #1 		; Pos: [0,144]
-	BRP endFlip 		; If Pos > 0 Don't change dir
-	LD R1, playerPos
-	NOT R1, R1
-	Add R1, R1, #1 ; -Pos
-	BRP posDir ; If pos < 0 dir = 12 and pos = 0
-	BR endFlip
-
-	negDir
-	LD R3, playerDirNeg
-	ST R3, playerDir
-	LD R3, maxPlayerPos
-	ST R3, playerPos
-	BR endFlip
 	
-	posDir
-	LD R3, playerDirNeg
-	St R3, playerDir
-	AND R3, R3, #0
-	ST R3, playerDir
-
-	endFlip
-	; Place player
-	LEA R0, map
-	LD R1, playerPos
-  	ADD R0, R0, R1
-	AND R1, R1, 0
-	ADD R1, R1, #1
-	STR R1, R0, #0
+	JSR setupCall
+	JSR movePlayer
+	; BR exit
   BR gameLoop
 
   exit
 
-  LDR R7, R5, #1 
-  RET
+  JSR return
 ; return
+
+return
+  LDR R7, R5, #1 
+  LDR R5, R5, #0
+  RET
 
 ; void drawMap()
 drawMap
   STR R7, R5, #1
 
-  LD R1, mapSizeX ; R1 = maxSizeX
-  LD R2, mapSizeY ; R2 = maxSizeY
+  LD R1, mapSizeY ; R1 = maxSizeY
+  LD R2, mapSizeX ; R2 = maxSizeX
   LEA R3, map     ; R3 = mapPointer
   AND R4, R4, #0  ; R4 = currentX
 
@@ -132,8 +90,66 @@ drawMap
     BR forX
   endForX  
 
-  LDR R7, R5, #1 
-  RET
+  JSR return
+
+movePlayer
+  STR R7, R5, #1
+
+; Reset Player In Map
+	LEA R0, map
+	LD R1, playerPos
+  	ADD R0, R0, R1
+	AND R1, R1, 0
+	STR R1, R0, #0
+
+	; Move Player
+	LD R1, playerPos
+	LD R3, playerDir
+	ADD R1, R1, R3 ; new pos
+	ST R1, playerPos
+
+	; Check Dir
+	LD R2, maxPlayerPos
+	NOT R2, R2
+	ADD R2, R2, #1 		; -maxPos
+	ADD R2, R2, R1 		; Pos - maxPos: [-144,0]
+	BRZP negDir 		; If pos >= 144 flip dir to -12
+	LD R2, playerPos
+	NOT R2, R2   		; else check if pos == 0
+	ADD R2, R2, #1 		; Pos: [0,144]
+	BRZP checkDir 		; If Pos <= 0 flip
+	BR endFlip
+	checkDir
+	LD R2, playerDir
+	NOT R2, R2   		
+	ADD R2, R2, #1 		
+	BRP posDir			; if dir < 0 flip
+	BR endFlip
+
+
+	negDir
+	LD R3, playerDirNeg
+	ST R3, playerDir
+	LD R3, maxPlayerPos
+	ST R3, playerPos
+	BR endFlip
+	
+	posDir
+	LD R3, playerDirPos
+	ST R3, playerDir
+	AND R3, R3, #0
+	ST R3, playerPos
+
+	endFlip
+	; Place player
+	LEA R0, map
+	LD R1, playerPos
+  	ADD R0, R0, R1
+	AND R1, R1, 0
+	ADD R1, R1, #1
+	STR R1, R0, #0
+
+  JSR return
 
 ; funct Sleep(60ms * R1)
 Sleep 
@@ -147,16 +163,21 @@ Sleep
 	ADD R1, R1, #-1
 	BRP goback
 
-  LDR R7, R5, #1 
-  RET
+  JSR return
 
+; Store R0 @ R6
+; move stackPtr
+; Access param: LDR R0, R5, #(paramIndex + 1)
 addParam
   STR R0, R6, #0
   ADD R6, R6, #-1
   RET
 
+; R7 = return
+; R6 = next frame
+; R5 = stackframePtr
 setupCall
-  ADD R6, R6, #-3
+  ADD R6, R6, #-2
   STR R5, R6, #1
   ADD R5, R6, #1
   RET
@@ -164,20 +185,19 @@ setupCall
 randomCount .FILL 0
 maxInt .FILL x7FFF
 oneSec .FILL 77
+quartSec .FILL 20
 callStack .FILL x8000
 player .STRINGZ "|"
 space .STRINGZ "."
 ball .STRINGZ "•"
 newLine .STRINGZ "\n"
 curX .FILL #0
-mapSizeX .FILL -12
+mapSizeX .FILL -36
 mapSizeY .FILL -12
-marker .FILL -1111
 playerPos .FILL 0
-marker2 .FILL -1111
-playerDir .FILL 12
-playerDirPos .FILL 12
-playerDirNeg .FILL -12
-maxPlayerPos .FILL 144
+playerDir .FILL 36
+playerDirPos .FILL 36
+playerDirNeg .FILL -36
+maxPlayerPos .FILL 396
 map .BLKW 400 0
 .END
