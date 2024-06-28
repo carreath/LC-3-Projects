@@ -11,24 +11,21 @@ init
   STR R1, R0, #0
 
 main
-  JSR setupCall
   AND R0, R0, #0
-  ADD R0, R0, #1
+  ADD R0, R0, #-16
+  JSR createStackFrame
   JSR game
   HALT
 
 ; void game(int players, int difficulty)
 game 
-  STR R7, R5, #1
-
   gameLoop
-    JSR setupCall
+    JSR createStackFrame
     JSR drawMap
-    LD R3, quartSec
-    JSR setupCall
+    JSR createStackFrame
     JSR Sleep
 	
-    JSR setupCall
+    JSR createStackFrame
     JSR movePlayer
     ; BR exit
   BR gameLoop
@@ -40,8 +37,6 @@ game
 
 ; void drawMap()
 drawMap
-  STR R7, R5, #1
-
   LD R1, mapSizeY ; R1 = maxSizeY
   LD R2, mapSizeX ; R2 = maxSizeX
   LEA R3, map     ; R3 = mapPointer
@@ -88,8 +83,6 @@ drawMap
   JSR return
 
 movePlayer
-  STR R7, R5, #1
-
 	; Reset Player In Map
 	LEA R0, map
 	LD R1, playerPos
@@ -121,7 +114,6 @@ movePlayer
 	BRP posDir			; if dir < 0 flip
 	BR endFlip
 
-
 	negDir
 	AND R3, R3, #0
 	ST R3, playerDir
@@ -148,48 +140,54 @@ movePlayer
 
 ; funct Sleep(12ms * R3)
 Sleep 
-  STR R7, R5, #1
-
+    LD R3, quartSec
 	AND R2, R2, #0
 	ADD R2, R2, #5
 	goback
-	LD R4, maxInt
-	loop: 
-		ADD R4, R4, #-1
-		BRP loop
-	ADD R2, R2, #-1
-	BRP skipInput
-	JSR GET_KEY
-	ST R0, playerDir
-	AND R2, R2, #0
-	ADD R2, R2, #5
-	skipInput
-	ADD R3, R3, #-1
+		LD R4, maxInt
+		twelveMillis: 
+			ADD R4, R4, #-1
+		BRP twelveMillis
+
+		; Get User Input
+		ADD R2, R2, #-1
+		BRP skipInput
+		JSR GET_KEY
+		ST R0, playerDir
+		AND R2, R2, #0
+		ADD R2, R2, #5
+		skipInput
+		ADD R3, R3, #-1
 	BRP goback
 
-  JSR return
+  	JSR return
 
-; Store R0 @ R6
-; move stackPtr
+; Store R0 @ R6 in the next stack frame
 ; Access param: LDR R0, R5, #(paramIndex + 1)
+; Add params before createStackFrame
 addParam
-  STR R0, R6, #0
-  ADD R6, R6, #-1
-  RET
+	STR R0, R6, #0
+	ADD R6, R6, #-1
+	RET
 
+; Pushes sub routine in stack frame
+; JSR createStackFrame immediately before JSR <complex function>, JSR return to pop frame
 ; R7 = return
 ; R6 = next frame
 ; R5 = stackframePtr
-setupCall
-  ADD R6, R6, #-2
-  STR R5, R6, #1
-  ADD R5, R6, #1
-  RET
-  
+createStackFrame
+	ADD R6, R6, #-2
+	STR R5, R6, #1
+	ADD R5, R7, #1 
+	STR R5, R6, #2 ; Store return address
+	ADD R5, R6, #1
+	RET
+
+; returns from the stack frame
 return
-  LDR R7, R5, #1 
-  LDR R5, R5, #0
-  RET
+	LDR R7, R5, #1 
+	LDR R5, R5, #0
+	RET
 
 GET_KEY
 	LDI R0, KBSR        ; Load the status of the keyboard
@@ -210,20 +208,17 @@ GET_KEY
 	ADD R1, R1, #1
 	ADD R1, R0, R1
 	BRz SET_S
-
-NO_KEY_PRESSED
-	AND R0, R0, #0    
+	NO_KEY_PRESSED
+		AND R0, R0, #0    
 	RET                 ; Return from subroutine
-
-SET_W
-	LD R0, negPlayerDir
-	STI R1, KBSR
+	SET_W
+		LD R0, negPlayerDir
+		STI R1, KBSR
 	RET                 ; Return from subroutine
-
-SET_S
+	SET_S
 		LD R0, posPlayerDir
 		STI R1, KBSR
-        RET                 ; Return from subroutine
+	RET                 ; Return from subroutine
 
 randomCount .FILL 0
 maxInt .FILL x7FFF
