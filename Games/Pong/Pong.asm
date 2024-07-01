@@ -4,7 +4,6 @@ BR run
 moveEnemy
 	LD R0, ballPosY
 	ST R0, enemyPosY
-
 JSR return
 
 ; game(int players, int difficulty)
@@ -53,11 +52,6 @@ check_bounds
 check_bounds_true
 JSR return
 
-; BUGS: 
-; ballPosX = 2, ballDirX = -1  ==> NO COLLISION               PRIORITY HIGH
-; enemy / player paddle both trigger collision on eachother   PRIORITY HIGH  (Due to pY == bY || eY == bY) => Should be separate
-; ballPosX = 35, ballDirX = -1 ==> Collision                  PRIORITY LOW
-;
 ; hCollision()
 ; returns (0) True  (R0 == 0) if the ball collides with a paddle or the wall
 ; returns (1) False (R0 == 1) if ball is not colliding
@@ -66,27 +60,29 @@ hCollision
   NOT R0, R0
   ADD R0, R0, #1
   ; if ((ballPosY == playerPosY || ballPosY == enemyPosY) && check_bounds(ballPosX,ballDirX,-34))
-    LD R2, playerPosY
-    ADD R2, R2, R0
-    BRZ hCollision_AND
-    ; OR
-    LD R2, enemyPosY
-    ADD R2, R2, R0
-    BRZ hCollision_AND
-  BR hCollision_ELSE
-  hCollision_AND
-    LD R0, ballPosX
-      JSR addParam
-    LD R0, ballDirX
-      JSR addParam
-    LD R0, mapSizeX
-      ADD R0, R0, #2
-      JSR addParam
-    JSR createStackFrame
-      JSR check_bounds    ;
-    ADD R0, R0, R0  
-    BRZ hCollision_true     ; true return 0
-
+    LD R2, playerPosX
+    LD R3, ballPosX
+	NOT R2, R2
+	ADD R2, R2, #1
+	LD R4, ballDirX
+    ADD R2, R2, R3
+    ADD R2, R2, R4
+	BRNP hCollision_OR
+		LD R2, playerPosY
+		ADD R2, R2, R0
+    	BRZ hCollision_true
+	hCollision_OR
+    LD R2, enemyPosX
+    LD R3, ballPosX
+	NOT R2, R2
+	ADD R2, R2, #1
+	LD R4, ballDirX
+    ADD R2, R2, R3
+    ADD R2, R2, R4
+	BRNP hCollision_ELSE
+		LD R2, enemyPosY
+		ADD R2, R2, R0
+    	BRZ hCollision_true
   hCollision_ELSE
     LD R0, ballPosX
       JSR addParam
@@ -100,6 +96,7 @@ hCollision
     BRP hCollision_false    ; false return 1
 
 	AND R1, R1, #0 ; End Game
+	ADD R1, R1, #1
     ST R1, running
     BR hCollision_return    ; true return 0 and stop loop
 
@@ -343,6 +340,39 @@ return
   ADD R6, R5, #-1
 RET
 
+ball      .STRINGZ "o"
+ballPosX    .FILL 3
+ballPosY    .FILL 6
+ballDirX    .Fill 1
+ballDirY    .FILL 1
+player      .STRINGZ "]"
+playerPosX    .FILL 1
+playerPosY    .FILL 6
+enemy     .STRINGZ "["
+enemyPosX   .FILL 34
+enemyPosY   .FILL 7
+running     .FILL 0
+randomCount   .FILL 0
+maxInt      .FILL x7FFF
+oneSec      .FILL 40 ;77 == one second
+quartSec    .FILL 15 ; 20 == 0.25 s
+space     .STRINGZ " "
+newLine     .STRINGZ "\n"
+curX      .FILL #0
+mapSizeX    .FILL -36
+mapSizeY    .FILL -11
+playerDir   .FILL 0
+posPlayerDir  .FILL 1
+negPlayerDir  .FILL -1
+maxPlayerPos  .FILL 11
+
+callStack   .FILL x8000
+KBSR      .FILL xFE00    ; Keyboard status register address
+KBDR      .FILL xFE02    ; Keyboard data register address
+W       .FILL 119      ; W keycode
+S       .FILL 115      ; S keycode
+row       .BLKW 38 0
+
 GET_KEY
   LDI R0, KBSR      ; Load the status of the keyboard
   BRz NO_KEY_PRESSED  ; If no key is pressed, jump to NO_KEY_PRESSED
@@ -374,37 +404,4 @@ GET_KEY
     LD R0, posPlayerDir
     STI R1, KBSR
   RET        ; Return from subroutine
-
-player      .STRINGZ "]"
-playerPosX    .FILL 1
-playerPosY    .FILL 6
-enemy     .STRINGZ "["
-enemyPosX   .FILL 34
-enemyPosY   .FILL 7
-ball      .STRINGZ "o"
-ballPosX    .FILL 2
-ballPosY    .FILL 2
-ballDirX    .Fill 1
-ballDirY    .FILL 1
-running     .FILL 0
-randomCount   .FILL 0
-maxInt      .FILL x7FFF
-oneSec      .FILL 40 ;77 == one second
-quartSec    .FILL 15 ; 20 == 0.25 s
-space     .STRINGZ " "
-newLine     .STRINGZ "\n"
-curX      .FILL #0
-mapSizeX    .FILL -36
-mapSizeY    .FILL -11
-playerDir   .FILL 0
-posPlayerDir  .FILL 1
-negPlayerDir  .FILL -1
-maxPlayerPos  .FILL 11
-
-callStack   .FILL x8000
-KBSR      .FILL xFE00    ; Keyboard status register address
-KBDR      .FILL xFE02    ; Keyboard data register address
-W       .FILL 119      ; W keycode
-S       .FILL 115      ; S keycode
-row       .BLKW 38 0
 .END
